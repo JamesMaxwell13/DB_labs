@@ -1,51 +1,48 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
-	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
-	"lab_6/data"
+	"github.com/spf13/viper"
+	"lab_6/config"
 	"lab_6/gui"
+	"lab_6/repository"
 	"log"
 	"os"
 )
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
-
-	host := os.Getenv("DB_HOST")
-	port := os.Getenv("DB_PORT")
-	user := os.Getenv("DB_USER")
-	password := os.Getenv("DB_PASSWORD")
-	dbname := os.Getenv("DB_NAME")
-
-	psqlInfo := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		host, port, user, password, dbname)
-
-	data.Db, err = sql.Open("postgres", psqlInfo)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer data.Db.Close()
-
-	err = data.Db.Ping()
-	if err != nil {
+	if err := config.InitConfig(); err != nil {
 		log.Fatal(err)
 	}
 
-	rows, err := data.Db.Query("SELECT datname FROM pg_database WHERE datistemplate = false")
+	if err := godotenv.Load(".env"); err != nil {
+		log.Fatalf("error loading .env variables: %s", err.Error())
+	}
+
+	pg := new(repository.PostgresRepository)
+	_, err := pg.InitDB(repository.Config{
+		Host:     viper.GetString("db.host"),
+		Port:     viper.GetString("db.port"),
+		Username: viper.GetString("db.username"),
+		DBName:   viper.GetString("db.dbname"),
+		SSLMode:  viper.GetString("db.sslmode"),
+		Password: os.Getenv("DB_PASSWORD"),
+	})
+	if err != nil {
+		log.Fatal(err)
+	} else {
+		log.Println("connected to the database successfully")
+	}
+
+	rows, err := pg.Db.Query("SELECT datname FROM pg_database WHERE datistemplate = false")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer rows.Close()
 
-	fmt.Println("Databases:")
 	for rows.Next() {
 		var dbName string
 		err := rows.Scan(&dbName)
@@ -62,8 +59,7 @@ func main() {
 
 	a := app.New()
 	w := a.NewWindow("Jurassic Park Database")
-	a, w = gui.GUI()
-	w.Resize(fyne.NewSize(800, 600))
+	a, w = gui.GUI(pg)
 	w.ShowAndRun()
 }
 
@@ -384,8 +380,8 @@ func main() {
 //			}
 //			defer reader.Close()
 //
-//			data := make([]byte, 1024*1024) // 1MB buffer
-//			n, err := reader.Read(data)
+//			repository := make([]byte, 1024*1024) // 1MB buffer
+//			n, err := reader.Read(repository)
 //			if err != nil {
 //				dialog.ShowError(err, window)
 //				return
@@ -393,7 +389,7 @@ func main() {
 //
 //			// Здесь должна быть логика восстановления из резервной копии
 //			// Это упрощенный пример
-//			queries := strings.Split(string(data[:n]), ";")
+//			queries := strings.Split(string(repository[:n]), ";")
 //			for _, query := range queries {
 //				query = strings.TrimSpace(query)
 //				if query == "" {

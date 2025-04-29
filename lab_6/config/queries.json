@@ -1,0 +1,14 @@
+[
+  {
+    "name": "Find Dinosaurs by Species",
+    "sql": "SELECT * FROM dinosaur WHERE species = $1"
+  },
+  {
+    "name": "Find Employees by Position",
+    "sql": "SELECT * FROM employee WHERE position = $1"
+  },
+  {
+    "name": "[lab_4] - Dinosaur",
+    "sql": "SELECT *\r\nFROM dinosaur\r\nWHERE weight \u003c 500\r\nORDER BY species;\r"
+  }
+]

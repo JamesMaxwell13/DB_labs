@@ -3,6 +3,7 @@ package repository
 import (
 	_ "database/sql"
 	"fmt"
+	_ "github.com/jmoiron/sqlx"
 	"strings"
 )
 
@@ -48,6 +49,64 @@ func GetTableEntities(pg *PostgresRepository, tableName string) ([]map[string]in
 		return nil, err
 	}
 	return entities, nil
+}
+
+func DeleteTable(pg *PostgresRepository, tableName string) error {
+	query := fmt.Sprintf("DROP TABLE IF EXISTS %s CASCADE", tableName)
+	_, err := pg.Db.Exec(query)
+	return err
+}
+
+func DeleteEntity(pg *PostgresRepository, tableName string, entity map[string]interface{}) error {
+	var whereClauses []string
+	var args []interface{}
+	i := 1
+	for k, v := range entity {
+		whereClauses = append(whereClauses, fmt.Sprintf("%s = $%d", k, i))
+		args = append(args, v)
+		i++
+	}
+	query := fmt.Sprintf("DELETE FROM %s WHERE %s", tableName, strings.Join(whereClauses, " AND "))
+	_, err := pg.Db.Exec(query, args...)
+	return err
+}
+
+func UpdateEntity(pg *PostgresRepository, tableName string, old map[string]interface{}, updated map[string]interface{}) error {
+	var setClauses []string
+	var args []interface{}
+	i := 1
+	for k, v := range updated {
+		setClauses = append(setClauses, fmt.Sprintf("%s = $%d", k, i))
+		args = append(args, v)
+		i++
+	}
+
+	var whereClauses []string
+	for k, v := range old {
+		whereClauses = append(whereClauses, fmt.Sprintf("%s = $%d", k, i))
+		args = append(args, v)
+		i++
+	}
+
+	query := fmt.Sprintf("UPDATE %s SET %s WHERE %s", tableName, strings.Join(setClauses, ", "), strings.Join(whereClauses, " AND "))
+	_, err := pg.Db.Exec(query, args...)
+	return err
+}
+
+func InsertEntity(pg *PostgresRepository, tableName string, values map[string]interface{}) error {
+	var keys []string
+	var params []string
+	var args []interface{}
+	i := 1
+	for k, v := range values {
+		keys = append(keys, k)
+		params = append(params, fmt.Sprintf("$%d", i))
+		args = append(args, v)
+		i++
+	}
+	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", tableName, strings.Join(keys, ", "), strings.Join(params, ", "))
+	_, err := pg.Db.Exec(query, args...)
+	return err
 }
 
 // ColumnInfo содержит информацию о колонке таблицы

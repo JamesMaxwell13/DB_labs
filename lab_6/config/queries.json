@@ -1,14 +1,98 @@
 [
   {
-    "name": "Find Dinosaurs by Species",
-    "sql": "SELECT * FROM dinosaur WHERE species = $1"
+    "name": "1. [lab_4] - Dinosaur",
+    "sql": "SELECT *\nFROM dinosaur\nWHERE weight < 500\nORDER BY species;\n"
   },
   {
-    "name": "Find Employees by Position",
-    "sql": "SELECT * FROM employee WHERE position = $1"
+    "name": "2. [lab_4] - Dinosaur-food",
+    "sql": "SELECT\n d.id,\n d.name,\n d.species,\n f.id,\n f.composition,\n f.species,\n f.price\nFROM dinosaur d\nJOIN food_dinosaur fd ON d.id = fd.dinosaur_id\nJOIN food f ON fd.food_id = f.id\nORDER BY d.id DESC;\n"
   },
   {
-    "name": "[lab_4] - Dinosaur",
-    "sql": "SELECT *\r\nFROM dinosaur\r\nWHERE weight \u003c 500\r\nORDER BY species;\r"
+    "name": "3. [lab_4] - Exhibit",
+    "sql": "SELECT *\nFROM exhibit\nWHERE date < '2024-01-01'\nORDER BY name;"
+  },
+  {
+    "name": "4. [lab_4] - Tour-visitor",
+    "sql": "SELECT *\nFROM tour\nJOIN visitor ON visitor.id = tour.visitor_id\nWHERE tour.price > '35Br'\nORDER BY price;"
+  },
+  {
+    "name": "5. [lab_4] - Visitor",
+    "sql": "SELECT *\nFROM visitor v\nWHERE v.age > 35 AND v.gender = 'Мужской'\nORDER BY v.age;\n"
+  },
+  {
+    "name": "6. [lab_4] - Enclosure",
+    "sql": "SELECT *\nFROM enclosure\nWHERE height >= 10\nORDER BY square;"
+  },
+  {
+    "name": "7. [lab_4] - Enclosure_employee",
+    "sql": "SELECT\n enc.id,\n enc.square,\n enc.location,\n enc.height,\n enc.capacity,\n emp.id,\n emp.name,\n emp.position\nFROM enclosure enc\nJOIN enclosure_employee ee ON ee.enclosure_id = enc.id\nJOIN employee emp ON emp.id = ee.employee_id\nWHERE capacity >= 5 AND capacity <= 12\nORDER BY emp.name;\n"
+  },
+  {
+    "name": "8. [lab_4] - Employee",
+    "sql": "SELECT *\nFROM employee\nWHERE gender = 'Женский' AND experience < 8\nORDER BY name DESC;\n"
+  },
+  {
+    "name": "9. [lab_4] - Exhibit_tour",
+    "sql": "SELECT\n ex.id,\n ex.name,\n ex.description,\n t.id,\n t.date,\n t.time,\n t.price\nFROM exhibit ex\nJOIN tour_exhibit te ON te.exhibit_id = ex.id\nJOIN tour t ON t.id = te.tour_id\nWHERE ex.name LIKE 'Окаменелость%'\nORDER BY ex.name;\n"
+  },
+  {
+    "name": "10. [lab_4] - Food",
+    "sql": "SELECT *\nFROM food\nWHERE price < '9Br' AND amount > 60\nORDER BY composition;\n"
+  },
+  {
+    "name": "11. [lab_4] - Dinosaur_enclosure",
+    "sql": "SELECT\n d.id,\n d.name,\n d.species,\n en.capacity,\n en.location,\n en.square\nFROM dinosaur d\nJOIN enclosure en ON en.id = d.enclosure_id\nWHERE d.height > 4\nORDER BY d.name;\n"
+  },
+  {
+    "name": "12. [lab_4] - Food_with_meat",
+    "sql": "SELECT *\nFROM food\nWHERE species LIKE '%мясо%' OR species LIKE 'Мясо%'\nORDER BY price;\n"
+  },
+  {
+    "name": "1. [lab_5] - Dinosaur",
+    "sql": "SELECT\nspecies,\nCOUNT(*) as count,\nAVG(weight) as avg_weight,\nAVG(height) as avg_height\nFROM dinosaur\nGROUP BY species\nORDER BY count DESC;\n"
+  },
+  {
+    "name": "2. [lab_5] - Dinosaur_male_speed",
+    "sql": "SELECT d.name, d.species, d.max_speed\nFROM dinosaur d\nWHERE d.max_speed > (\nSELECT AVG(max_speed)\nFROM dinosaur d2\nWHERE d2.gender = 'Мужской'\n);\n"
+  },
+  {
+    "name": "3. [lab_5] - Employee_experience",
+    "sql": "SELECT name, position, experience\nFROM employee\nWHERE experience > (SELECT AVG(experience) FROM employee)\nORDER BY experience DESC;\n"
+  },
+  {
+    "name": "4. [lab_5] - Employee_count_by_position",
+    "sql": "SELECT position, COUNT(*) as empl_count FROM public.employee\nGROUP BY position\nORDER BY empl_count ASC;\n"
+  },
+  {
+    "name": "5. [lab_5] - Enclosure_count_average_area",
+    "sql": "SELECT\nlocation,\nCOUNT(*) as enclosure_count,\nAVG(square) as avg_square\nFROM enclosure\nGROUP BY location\nORDER BY enclosure_count DESC;\n"
+  },
+  {
+    "name": "6. [lab_5] - Enclosure_dinosaur_count",
+    "sql": "SELECT\n e.id,\n e.location,\n e.capacity,\n COUNT(d.id) as dinosaur_count\nFROM enclosure e\nLEFT JOIN dinosaur d ON e.id = d.enclosure_id\nGROUP BY e.id, e.capacity\nHAVING COUNT(d.id) > 0\nORDER BY dinosaur_count DESC;\n"
+  },
+  {
+    "name": "7. [lab_5] - Exhibit_statistics",
+    "sql": "SELECT\n EXTRACT(YEAR FROM date) AS year,\n COUNT(*) AS exhibits_per_year\nFROM exhibit\nWHERE date IS NOT NULL\nGROUP BY EXTRACT(YEAR FROM date)\nHAVING COUNT(*) >= 2\nORDER BY year DESC;\n"
+  },
+  {
+    "name": "8. [lab_5] - Visitor_age_statistics",
+    "sql": "SELECT\n CASE\n WHEN age < 18 THEN 'Дети'\n WHEN age BETWEEN 18 AND 30 THEN 'Молодежь'\n WHEN age BETWEEN 31 AND 50 THEN 'Взрослые'\n ELSE 'Пожилые'\n END as age_group,\n COUNT(*) as count\nFROM visitor\nGROUP BY age_group\nORDER BY count DESC;\n"
+  },
+  {
+    "name": "9. [lab_5] - Visitor_tour_count",
+    "sql": "SELECT v.name,\n(SELECT COUNT(*)\nFROM tour t\nWHERE t.visitor_id = v.id) as tour_count\nFROM visitor v\nORDER BY tour_count DESC;\n"
+  },
+  {
+    "name": "10. [lab_5] - Food_average_price",
+    "sql": "SELECT\n f.species,\n COUNT(DISTINCT fd.dinosaur_id) as dinosaur_count,\n AVG(f.price::numeric) as avg_price\nFROM food f\nLEFT JOIN food_dinosaur fd ON f.id = fd.food_id\nGROUP BY f.species\nORDER BY dinosaur_count DESC;\n"
+  },
+  {
+    "name": "11. [lab_5] - Food_for_dinosaur",
+    "sql": "SELECT f.composition, f.price\nFROM food f\nWHERE f.id IN (\nSELECT fd.food_id\nFROM food_dinosaur fd\nJOIN dinosaur d ON fd.dinosaur_id = d.id\nWHERE d.species = 'Тиранозавр'\n);\n"
+  },
+  {
+    "name": "12. [lab_5] - Tour_grouping_by_date",
+    "sql": "SELECT\n date,\n COUNT(*) as tour_count,\n AVG(EXTRACT(EPOCH FROM duration)/60) as avg_duration_minutes\nFROM tour\nGROUP BY date\nORDER BY date;\n"
   }
 ]

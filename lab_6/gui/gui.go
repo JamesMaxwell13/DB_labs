@@ -3,6 +3,7 @@ package gui
 import (
 	"fmt"
 	"log"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -131,13 +132,17 @@ func CreateEntityForm(pg *repository.PostgresRepository, tableName string, entit
 func ShowEntityDetails(pg *repository.PostgresRepository, tableName string, entity map[string]interface{}, onUpdate func()) fyne.Window {
 	title := getEntityTitle(entity)
 	w := fyne.CurrentApp().NewWindow(fmt.Sprintf("%s: %s", tableName, title))
+	icon, _ := fyne.LoadResourceFromPath("C:\\BSUIR\\sem_6\\DB\\lab_6\\dino.png")
+	w.SetIcon(icon)
+	l
 	content := container.NewVBox()
-
 	for _, key := range sortEntityKeys(entity) {
 		content.Add(widget.NewLabelWithStyle(key, fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
 		content.Add(widget.NewLabel(formatValue(entity[key])))
 		content.Add(widget.NewSeparator())
 	}
+
+	scrollContent := container.NewVScroll(content)
 
 	actions := container.NewVBox(
 		widget.NewButtonWithIcon("Edit", theme.DocumentCreateIcon(), func() {
@@ -149,6 +154,8 @@ func ShowEntityDetails(pg *repository.PostgresRepository, tableName string, enti
 					dialog.ShowInformation("Success", "Entity updated successfully", w)
 				}
 			}))
+			icon, _ := fyne.LoadResourceFromPath("C:\\BSUIR\\sem_6\\DB\\lab_6\\dino.png")
+			editW.SetIcon(icon)
 			editW.Resize(fyne.NewSize(600, 400))
 			editW.Show()
 		}),
@@ -172,13 +179,18 @@ func ShowEntityDetails(pg *repository.PostgresRepository, tableName string, enti
 		}),
 	)
 
-	w.SetContent(container.NewVBox(
-		widget.NewLabelWithStyle("Entity Details", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-		widget.NewSeparator(),
-		content,
+	mainContent := container.NewBorder(
+		container.NewVBox(
+			widget.NewLabelWithStyle("Entity Details", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+			widget.NewSeparator(),
+		),
 		actions,
-	))
-	w.Resize(fyne.NewSize(400, w.Canvas().Size().Height))
+		nil, nil,
+		scrollContent,
+	)
+
+	w.SetContent(mainContent)
+	w.Resize(fyne.NewSize(400, 600))
 	return w
 }
 
@@ -194,7 +206,7 @@ func CreateTableForm(pg *repository.PostgresRepository, w fyne.Window) fyne.Canv
 	fieldRows := container.NewVBox()
 	addField := func() {
 		fieldNameEntry := widget.NewEntry()
-		typeSelect := widget.NewSelect([]string{"INTEGER", "TEXT", "BOOLEAN", "DATE", "TIMESTAMP", "MONEY", "SERIAL"}, nil)
+		typeSelect := widget.NewSelect([]string{"INTEGER", "REAL", "TEXT", "BOOLEAN", "DATE", "TIMESTAMP", "MONEY"}, nil)
 		typeSelect.PlaceHolder = "Select type"
 
 		row := container.NewGridWithColumns(2,
@@ -290,10 +302,8 @@ func CreateQueryForm(pg *repository.PostgresRepository, w fyne.Window) fyne.Canv
 			log.Println(err)
 			return
 		}
-
 		nameEntry := widget.NewEntry()
 		nameEntry.SetPlaceHolder("Query name")
-
 		dialog.ShowForm("Save Query", "Save", "Cancel", []*widget.FormItem{
 			widget.NewFormItem("Name", nameEntry),
 		}, func(b bool) {
@@ -311,7 +321,34 @@ func CreateQueryForm(pg *repository.PostgresRepository, w fyne.Window) fyne.Canv
 			}
 		}, w)
 	})
-	saveBtn.Importance = widget.HighImportance
+
+	deleteBtn := widget.NewButton("Delete Query", func() {
+		if querySelect.Selected == "" {
+			dialog.ShowInformation("Error", "No query selected to delete", w)
+			return
+		}
+
+		dialog.ShowConfirm("Delete Query",
+			fmt.Sprintf("Are you sure you want to delete query '%s'?", querySelect.Selected),
+			func(b bool) {
+				if b {
+					err := repository.DeleteQuery(querySelect.Selected)
+					if err != nil {
+						dialog.ShowError(err, w)
+						log.Println(err)
+						return
+					}
+
+					if names, err := repository.GetQueryNames(); err == nil {
+						querySelect.Options = names
+						querySelect.Selected = ""
+						querySelect.Refresh()
+						queryEntry.SetText("")
+					}
+					dialog.ShowInformation("Success", "Query deleted", w)
+				}
+			}, w)
+	})
 
 	runBtn := widget.NewButton("Run Query", func() {
 		if queryEntry.Text == "" {
@@ -320,30 +357,58 @@ func CreateQueryForm(pg *repository.PostgresRepository, w fyne.Window) fyne.Canv
 			log.Println(err)
 			return
 		}
-
 		results, err := repository.ExecuteQuery(pg, queryEntry.Text)
 		if err != nil {
 			dialog.ShowError(err, w)
 			log.Println(err)
 			return
 		}
-
 		resultWindow := fyne.CurrentApp().NewWindow("Query Results")
 		cardGrid := container.NewGridWithColumns(3)
 		cardScroll := container.NewVScroll(cardGrid)
-		resultWindow.SetContent(cardScroll)
+
+		exportBtn := widget.NewButtonWithIcon("Export to Excel", theme.DownloadIcon(), func() {
+			dialog.ShowFileSave(func(writer fyne.URIWriteCloser, err error) {
+				if err != nil {
+					dialog.ShowError(err, w)
+					log.Println(err)
+					return
+				}
+				if writer == nil {
+					return
+				}
+				defer writer.Close()
+
+				if err := repository.ExportQueryResultsToExcel(results, writer); err != nil {
+					dialog.ShowError(err, w)
+					log.Println(err)
+					return
+				}
+
+				dialog.ShowInformation("Success", "Results exported successfully", w)
+			}, resultWindow)
+		})
+
+		resultWindow.SetContent(container.NewBorder(
+			exportBtn,
+			nil,
+			nil,
+			nil,
+			cardScroll,
+		))
+
+		icon, _ := fyne.LoadResourceFromPath("C:\\BSUIR\\sem_6\\DB\\lab_6\\dino.png")
+		resultWindow.SetIcon(icon)
 		resultWindow.Resize(fyne.NewSize(1200, 800))
 
 		if len(results) > 0 {
 			for _, entity := range results {
-				title := getEntityTitle(entity)
+				e := entity
+				title := getEntityTitle(e)
 				info := container.NewVBox()
-				keys := sortEntityKeys(entity)
-				for i, key := range keys {
-					if i >= maxCardFields {
-						break
-					}
-					text := fmt.Sprintf("%s: %v", key, formatValue(entity[key]))
+				keys := sortEntityKeys(e)
+				for _, key := range keys {
+					text := fmt.Sprintf("%s: %v", key, formatValue(e[key]))
 					label := widget.NewLabel(text)
 					label.Wrapping = fyne.TextTruncate
 					info.Add(label)
@@ -357,26 +422,34 @@ func CreateQueryForm(pg *repository.PostgresRepository, w fyne.Window) fyne.Canv
 
 		resultWindow.Show()
 	})
-	runBtn.Importance = widget.HighImportance
 
-	buttons := container.NewGridWithColumns(2,
+	buttons := container.NewGridWithColumns(3,
 		saveBtn,
+		deleteBtn,
 		runBtn,
 	)
 
-	return container.NewBorder(
+	content := container.NewBorder(
 		container.NewVBox(
 			widget.NewLabel("Saved Queries:"),
 			querySelect,
 			widget.NewSeparator(),
 			widget.NewLabel("Query:"),
-			queryEntry,
 		),
 		buttons,
 		nil,
 		nil,
-		nil,
+		container.NewMax(
+			container.NewBorder(
+				nil,
+				nil,
+				nil,
+				nil,
+				queryEntry,
+			),
+		),
 	)
+	return content
 }
 
 func LoadTableEntities(pg *repository.PostgresRepository, tableName string, cardGrid *fyne.Container, w fyne.Window, a fyne.App, onEdit func(func()), onDelete func(func())) {
@@ -425,6 +498,8 @@ func LoadTableEntities(pg *repository.PostgresRepository, tableName string, card
 					dialog.ShowInformation("Success", "Entity updated successfully", parent)
 				}
 			}))
+			icon, _ := fyne.LoadResourceFromPath("C:\\BSUIR\\sem_6\\DB\\lab_6\\dino.png")
+			editW.SetIcon(icon)
 			editW.Resize(fyne.NewSize(600, 400))
 			editW.Show()
 		})
@@ -451,9 +526,16 @@ func LoadTableEntities(pg *repository.PostgresRepository, tableName string, card
 }
 
 func GUI(pg *repository.PostgresRepository) (fyne.App, fyne.Window) {
-	a := app.New()
+	os.Setenv("LANGUAGE", "en_US")
+	os.Setenv("LANG", "en_US.UTF-8")
+	os.Setenv("LC_ALL", "en_US.UTF-8")
+
+	a := app.NewWithID("com.jurassicpark.database")
 	w := a.NewWindow("Jurassic Park Database")
 	w.Resize(fyne.NewSize(1200, 900))
+	a.Preferences().SetString("language", "en")
+	icon, _ := fyne.LoadResourceFromPath("C:\\BSUIR\\sem_6\\DB\\lab_6\\dino.png")
+	w.SetIcon(icon)
 
 	cardGrid := container.NewGridWithColumns(3)
 	cardScroll := container.NewVScroll(cardGrid)
@@ -549,6 +631,8 @@ func GUI(pg *repository.PostgresRepository) (fyne.App, fyne.Window) {
 			return
 		}
 		newEntityWindow := a.NewWindow("New Entity")
+		icon, _ := fyne.LoadResourceFromPath("C:\\BSUIR\\sem_6\\DB\\lab_6\\dino.png")
+		newEntityWindow.SetIcon(icon)
 		newEntityWindow.SetContent(CreateEntityForm(pg, selectedTable, make(map[string]interface{}), true, func() {
 			LoadTableEntities(pg, selectedTable, cardGrid, w, a, nil, nil)
 			newEntityWindow.Close()
@@ -566,6 +650,8 @@ func GUI(pg *repository.PostgresRepository) (fyne.App, fyne.Window) {
 		widget.NewButtonWithIcon("New Table", theme.ContentAddIcon(), func() {
 			newTableWindow := a.NewWindow("Create Table")
 			newTableWindow.SetContent(CreateTableForm(pg, newTableWindow))
+			icon, _ := fyne.LoadResourceFromPath("C:\\BSUIR\\sem_6\\DB\\lab_6\\dino.png")
+			newTableWindow.SetIcon(icon)
 			newTableWindow.Resize(fyne.NewSize(600, 400))
 			newTableWindow.SetOnClosed(func() {
 				tables, _ = repository.GetTableList(pg)
@@ -625,7 +711,9 @@ func GUI(pg *repository.PostgresRepository) (fyne.App, fyne.Window) {
 		widget.NewButtonWithIcon("Run Query", theme.DocumentIcon(), func() {
 			queryWindow := a.NewWindow("Run Query")
 			queryWindow.SetContent(CreateQueryForm(pg, queryWindow))
-			queryWindow.Resize(fyne.NewSize(800, 600))
+			icon, _ := fyne.LoadResourceFromPath("C:\\BSUIR\\sem_6\\DB\\lab_6\\dino.png")
+			queryWindow.SetIcon(icon)
+			queryWindow.Resize(fyne.NewSize(600, 400))
 			queryWindow.Show()
 		}),
 	)

@@ -44,6 +44,35 @@ func loadQueries() ([]Query, error) {
 	return queries, nil
 }
 
+func DeleteQuery(name string) error {
+	queries, err := loadQueries()
+	if err != nil {
+		log.Println(err)
+		return fmt.Errorf("failed to load queries: %w", err)
+	}
+
+	found := false
+	for i, q := range queries {
+		if q.Name == name {
+			queries = append(queries[:i], queries[i+1:]...)
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("query '%s' not found", name)
+	}
+
+	if err := saveQueries(queries); err != nil {
+		log.Println(err)
+		return fmt.Errorf("failed to save queries: %w", err)
+	}
+
+	log.Printf("query '%s' deleted\n", name)
+	return nil
+}
+
 func saveQueries(queries []Query) error {
 	data, err := json.MarshalIndent(queries, "", "  ")
 	if err != nil {
@@ -528,5 +557,42 @@ func ExportDatabaseToExcel(pg *PostgresRepository, writer fyne.URIWriteCloser) e
 		}
 		f.SetActiveSheet(index)
 	}
+	return f.Write(writer)
+}
+
+func ExportQueryResultsToExcel(results []map[string]interface{}, writer fyne.URIWriteCloser) error {
+	f := excelize.NewFile()
+	defer f.Close()
+
+	sheetName := "Query Results"
+	index, err := f.NewSheet(sheetName)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	if len(results) == 0 {
+		log.Println("no data to export")
+		return fmt.Errorf("no data to export")
+	}
+
+	headers := make([]string, 0, len(results[0]))
+	for k := range results[0] {
+		headers = append(headers, k)
+	}
+
+	for i, header := range headers {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
+		f.SetCellValue(sheetName, cell, header)
+	}
+
+	for rowIdx, result := range results {
+		for colIdx, header := range headers {
+			cell, _ := excelize.CoordinatesToCellName(colIdx+1, rowIdx+2)
+			f.SetCellValue(sheetName, cell, result[header])
+		}
+	}
+
+	f.SetActiveSheet(index)
 	return f.Write(writer)
 }

@@ -134,7 +134,7 @@ func ShowEntityDetails(pg *repository.PostgresRepository, tableName string, enti
 	w := fyne.CurrentApp().NewWindow(fmt.Sprintf("%s: %s", tableName, title))
 	icon, _ := fyne.LoadResourceFromPath("C:\\BSUIR\\sem_6\\DB\\lab_6\\dino.png")
 	w.SetIcon(icon)
-	l
+
 	content := container.NewVBox()
 	for _, key := range sortEntityKeys(entity) {
 		content.Add(widget.NewLabelWithStyle(key, fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
